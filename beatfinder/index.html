@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Beat‑Ratio Finder</title>
+    <!-- Tailwind CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-900 text-gray-100 p-6">
+    <div class="max-w-xl mx-auto space-y-6">
+      <h1 class="text-2xl font-bold text-center">Beat‑Ratio Finder</h1>
+
+      <!-- Input panel -->
+      <div class="flex flex-col gap-4">
+        <label class="flex flex-col">
+          <span class="mb-1">Current track BPM</span>
+          <input
+            id="bpm1"
+            type="number"
+            step="0.01"
+            value="123"
+            class="rounded p-2 text-gray-900"
+          />
+        </label>
+        <label class="flex flex-col">
+          <span class="mb-1">Beats from Track A (integer)</span>
+          <input
+            id="beatsA"
+            type="number"
+            step="1"
+            value="4"
+            class="rounded p-2 text-gray-900"
+          />
+        </label>
+        <button
+          id="go"
+          class="bg-blue-600 hover:bg-blue-700 rounded p-3 font-semibold"
+        >
+          Go
+        </button>
+      </div>
+
+      <!-- Results table -->
+      <table class="w-full text-left mt-6">
+        <thead>
+          <tr class="border-b border-gray-700">
+            <th class="py-2">Track B BPM</th>
+            <th>Beats B</th>
+          </tr>
+        </thead>
+        <tbody id="results" class="divide-y divide-gray-800"></tbody>
+      </table>
+      <!-- Load more -->
+      <button
+        id="loadMore"
+        class="hidden bg-gray-700 hover:bg-gray-600 rounded p-2 w-full"
+      >
+        Load More Options
+      </button>
+    </div>
+
+    <!-- Logic -->
+    <script>
+      // configuration
+      const chunkSize = 10; // rows to show each batch
+
+      let allRows = [];
+      let currentIndex = 0;
+
+      function computeOptions(
+        bpm1,
+        nBeats,
+        maxBeatsB = 128,
+        bpmMin = 60,
+        bpmMax = 200,
+        tolerance = 0.002
+      ) {
+        const targetWindow = (nBeats * 60) / bpm1;
+        const rows = [];
+        for (let m = 1; m <= maxBeatsB; m++) {
+          const bpm2Exact = (m * 60) / targetWindow;
+          if (bpm2Exact < bpmMin || bpm2Exact > bpmMax) continue;
+          const bpm2Rounded = Math.round(bpm2Exact * 2) / 2; // 0.5 grid
+          const err = Math.abs(bpm2Exact - bpm2Rounded);
+          if (err <= tolerance) {
+            rows.push({
+              bpm2: bpm2Rounded.toFixed(1),
+              beatsB: m,
+            });
+          }
+        }
+        return rows;
+      }
+
+      function clearTable() {
+        document.getElementById("results").innerHTML = "";
+      }
+
+      function appendRows(rows) {
+        const tbody = document.getElementById("results");
+        rows.forEach((r) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td class="py-1">${r.bpm2}</td><td>${r.beatsB}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function renderInitial() {
+        clearTable();
+        currentIndex = 0;
+        appendNextChunk();
+      }
+
+      function appendNextChunk() {
+        const nextRows = allRows.slice(currentIndex, currentIndex + chunkSize);
+        appendRows(nextRows);
+        currentIndex += nextRows.length;
+        toggleLoadMore();
+      }
+
+      function toggleLoadMore() {
+        const btn = document.getElementById("loadMore");
+        if (currentIndex < allRows.length) {
+          btn.classList.remove("hidden");
+        } else {
+          btn.classList.add("hidden");
+        }
+      }
+
+      document.getElementById("go").addEventListener("click", () => {
+        const bpm1 = parseFloat(document.getElementById("bpm1").value);
+        const beatsA = parseInt(document.getElementById("beatsA").value, 10);
+        if (isNaN(bpm1) || isNaN(beatsA) || beatsA <= 0) return;
+        allRows = computeOptions(bpm1, beatsA);
+        renderInitial();
+      });
+
+      document.getElementById("loadMore").addEventListener("click", appendNextChunk);
+
+      // Allow Enter key in any input to trigger "Go"
+      ["bpm1", "beatsA"].forEach((id) => {
+        document.getElementById(id).addEventListener("keyup", (e) => {
+          if (e.key === "Enter") document.getElementById("go").click();
+        });
+      });
+    </script>
+  </body>
+</html>
